@@ -2,70 +2,129 @@
 using System.Collections.Generic;
 using System.Linq;
 
+// ReSharper disable AccessToModifiedClosure
+
 namespace MctsLib
 {
-	public class Mcts
-	{
-		private readonly IBoard startBoard;
-		private readonly Action<string> log;
-		private readonly Random random;
-		private readonly Node root;
+	public delegate double EstimateNode<TBoard>(Node<TBoard> node, TBoard previousBoard) 
+		where TBoard : IBoard<TBoard>;
+	public delegate double EstimateMove<TBoard>(IMove<TBoard> move, TBoard previousBoard) 
+		where TBoard : IBoard<TBoard>;
 
-		public Mcts(IBoard startBoard, Action<string> log, Random random)
+	public class Mcts<TBoard> where TBoard : IBoard<TBoard>
+	{
+		public Mcts()
 		{
-			this.startBoard = startBoard;
-			this.log = log;
-			this.random = random;
-			root = new Node(startBoard);
+			EstimateNodeForSelection =
+				(n, b) => n.GetExpectedScore(b.CurrentPlayer) + Ubc.Margin(n, ExplorationConstant);
 		}
 
-		public IMove GetBestMove(TimeSpan timeLimit, int maxSimulationsCount)
+		public EstimateNode<TBoard> EstimateNodeForExpansion = (n, b) => 0.0;
+		public EstimateNode<TBoard> EstimateNodeForFinalChoice = (n, b) => n.GetExpectedScore(b.CurrentPlayer);
+		public EstimateNode<TBoard> EstimateNodeForSelection;
+		public double ExplorationConstant = 1.4;
+		public EstimateMove<TBoard> EstimateNodeForSimulation = (move, b) => 0.0;
+		public Action<string> Log = s => { };
+		public int MaxSimulationsCount = 1000;
+		public TimeSpan MaxTime = TimeSpan.FromMilliseconds(100);
+		public Random Random = new Random();
+
+		public IMove<TBoard> GetBestMove(TBoard startBoard)
 		{
+			var root = BuildGameTree(startBoard);
+			return GetBestMove(startBoard, root);
+		}
+
+		private IMove<TBoard> GetBestMove(TBoard startBoard, Node<TBoard> root)
+		{
+			var estimatedChildren = GetEstimatedChildren(startBoard, root);
+			LogMoveOptions(estimatedChildren);
+			var best = estimatedChildren.SelectOne(n => n.estimate, Random);
+			return best.child.Move;
+		}
+
+		private Node<TBoard> BuildGameTree(TBoard startBoard)
+		{
+			var root = new Node<TBoard>(startBoard.PlayersCount);
 			var startTime = DateTime.Now;
-			int simulationCount = 0;
-			while (DateTime.Now - startTime < timeLimit && simulationCount < maxSimulationsCount)
+			var simulationCount = 0;
+			while (DateTime.Now - startTime < MaxTime
+				   && simulationCount < MaxSimulationsCount)
 			{
 				var board = startBoard.MakeCopy();
-				var nodeAndBoard = SelectExploredNode(root, board);
-				var scores = SimulateToScores(nodeAndBoard.Item2);
-				BackpropagateScores(nodeAndBoard.Item1, scores);
+				var newNode = GetExpandedNode(root, board);
+				var scores = SimulateToEnd(board);
+				BackpropagateScores(newNode, scores);
 				simulationCount++;
 			}
 
-			log($"simulations count: {simulationCount}");
-			var best = GetBestNodes();
-			return best.ChooseRandom(random).Move;
+			Log($"simulations count: {simulationCount}");
+			return root;
 		}
 
-		private List<Node> GetBestNodes()
+		private void LogMoveOptions(IEnumerable<(Node<TBoard> node, double estimate)> estimatedOptions)
 		{
-			var orderedNodes = root.GetChildren().OrderByDescending(node => node.GetExpectedScore(startBoard.CurrentPlayer)).ToList();
-			foreach (var child in orderedNodes.Take(10))
-				log($"option exp={child.GetExpectedScore(startBoard.CurrentPlayer)} {child.Move} plays={child.TotalPlays}");
-			var bestScore = orderedNodes[0].GetExpectedScore(startBoard.CurrentPlayer);
-			// ReSharper disable once CompareOfFloatsByEqualityOperator
-			var best = orderedNodes.TakeWhile(n => n.GetExpectedScore(startBoard.CurrentPlayer) == bestScore);
-			return best.ToList();
+			string Format((Node<TBoard> node, double estimate) child) =>
+				$"  * estimate: {child.estimate} {child.node}";
+
+			var text = string.Join("\n", estimatedOptions.Select(Format));
+			Log($"Options:\n{text}");
 		}
 
-		private void BackpropagateScores(Node node, double[] scores)
+		private List<(Node<TBoard> child, double estimate)> GetEstimatedChildren(TBoard startBoard, Node<TBoard> root)
 		{
-			throw new NotImplementedException();
+			return root
+				.GetChildren()
+				.Select(n => (child: n, estimate: EstimateNodeForFinalChoice(n, startBoard)))
+				.OrderByDescending(n => n.estimate)
+				.ToList();
 		}
 
-		private Tuple<Node, IBoard> SelectExploredNode(Node node, IBoard board)
+		private void BackpropagateScores(Node<TBoard> node, double[] scores)
 		{
-			throw new NotImplementedException();
-		}
-
-		private double[] SimulateToScores(IBoard b)
-		{
-			while (!b.IsFinished())
+			while (node != null)
 			{
-				var moves = b.GetPossibleMoves();
-				b = b.ApplyMove(moves.ChooseRandom(random));
+				node.RegisterPlay(scores);
+				node = node.Parent;
 			}
-			return b.GetScores();
+		}
+
+		private Node<TBoard> GetExpandedNode(Node<TBoard> node, TBoard board)
+		{
+			while (node.GetUnvisitedChildren(board).Count == 0)
+			{
+				var children = node.GetChildren();
+				if (children.Count == 0) return node;
+				node = children
+					.SelectOne(
+						childNode => EstimateNodeForSelection(childNode, board),
+						Random
+					);
+				node.Move.ApplyTo(board);
+			}
+			return Expand(node, board);
+		}
+
+		private Node<TBoard> Expand(Node<TBoard> node, TBoard board)
+		{
+			var child = node.GetUnvisitedChildren(board)
+				.SelectOne(n => EstimateNodeForExpansion(n, board), Random);
+			node.MakeVisited(child);
+			child.Move.ApplyTo(board);
+			return child;
+		}
+
+		private double[] SimulateToEnd(TBoard board)
+		{
+			while (!board.IsFinished())
+			{
+				var possibleMoves = board.GetPossibleMoves();
+				var move = possibleMoves.SelectOne(
+					m => EstimateNodeForSimulation(m, board),
+					Random);
+				move.ApplyTo(board);
+			}
+			return board.GetScores();
 		}
 	}
 }
