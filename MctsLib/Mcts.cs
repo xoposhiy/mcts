@@ -6,12 +6,12 @@ using System.Linq;
 
 namespace MctsLib
 {
-	public delegate double EstimateNode<TBoard>(Node<TBoard> node, TBoard previousBoard) 
-		where TBoard : IBoard<TBoard>;
-	public delegate double EstimateMove<TBoard>(IMove<TBoard> move, TBoard previousBoard) 
-		where TBoard : IBoard<TBoard>;
+	public delegate double EstimateNode<TGame>(Node<TGame> node, TGame previousGame) 
+		where TGame : IGame<TGame>;
+	public delegate double EstimateMove<TGame>(IMove<TGame> move, TGame previousGame) 
+		where TGame : IGame<TGame>;
 
-	public class Mcts<TBoard> where TBoard : IBoard<TBoard>
+	public class Mcts<TGame> where TGame : IGame<TGame>
 	{
 		public Mcts()
 		{
@@ -19,68 +19,70 @@ namespace MctsLib
 				(n, b) => n.GetExpectedScore(b.CurrentPlayer) + Ubc.Margin(n, ExplorationConstant);
 		}
 
-		public EstimateNode<TBoard> EstimateNodeForExpansion = (n, b) => 0.0;
-		public EstimateNode<TBoard> EstimateNodeForFinalChoice = (n, b) => n.GetExpectedScore(b.CurrentPlayer);
-		public EstimateNode<TBoard> EstimateNodeForSelection;
+		public EstimateNode<TGame> EstimateNodeForExpansion = (n, b) => 0.0;
+		public EstimateNode<TGame> EstimateNodeForFinalChoice = (n, b) => n.GetExpectedScore(b.CurrentPlayer);
+		public EstimateNode<TGame> EstimateNodeForSelection;
 		public double ExplorationConstant = 1.4;
-		public EstimateMove<TBoard> EstimateNodeForSimulation = (move, b) => 0.0;
+		public EstimateMove<TGame> EstimateNodeForSimulation = (move, b) => 0.0;
 		public Action<string> Log = s => { };
 		public int MaxSimulationsCount = 1000;
 		public TimeSpan MaxTime = TimeSpan.FromMilliseconds(100);
 		public Random Random = new Random();
 
-		public IMove<TBoard> GetBestMove(TBoard startBoard)
+		public IMove<TGame> GetBestMove(TGame game)
 		{
-			var root = BuildGameTree(startBoard);
-			return GetBestMove(startBoard, root);
+			var root = BuildGameTree(game);
+			return GetBestMove(game, root);
 		}
 
-		private IMove<TBoard> GetBestMove(TBoard startBoard, Node<TBoard> root)
+		private IMove<TGame> GetBestMove(TGame game, Node<TGame> root)
 		{
-			var estimatedChildren = GetEstimatedChildren(startBoard, root);
+			var estimatedChildren = GetEstimatedChildren(game, root);
 			LogMoveOptions(estimatedChildren);
 			var best = estimatedChildren.SelectOne(n => n.estimate, Random);
 			return best.child.Move;
 		}
 
-		private Node<TBoard> BuildGameTree(TBoard startBoard)
+		private Node<TGame> BuildGameTree(TGame game)
 		{
-			var root = new Node<TBoard>(startBoard.PlayersCount);
+			var root = new Node<TGame>(game.PlayersCount);
 			var startTime = DateTime.Now;
 			var simulationCount = 0;
+			var maxDepth = 0;
 			while (DateTime.Now - startTime < MaxTime
 				   && simulationCount < MaxSimulationsCount)
 			{
-				var board = startBoard.MakeCopy();
-				var newNode = GetExpandedNode(root, board);
-				var scores = SimulateToEnd(board);
+				var gameCopy = game.MakeCopy();
+				var newNode = GetExpandedNode(root, gameCopy);
+				maxDepth = Math.Max(maxDepth, newNode.Depth);
+				var scores = SimulateToEnd(gameCopy);
 				BackpropagateScores(newNode, scores);
 				simulationCount++;
 			}
 
-			Log($"simulations count: {simulationCount}");
+			Log($"simulations count: {simulationCount}, depth: {maxDepth}, nodes: {root.GetNodesCount()}");
 			return root;
 		}
 
-		private void LogMoveOptions(IEnumerable<(Node<TBoard> node, double estimate)> estimatedOptions)
+		private void LogMoveOptions(IEnumerable<(Node<TGame> node, double estimate)> estimatedOptions)
 		{
-			string Format((Node<TBoard> node, double estimate) child) =>
+			string Format((Node<TGame> node, double estimate) child) =>
 				$"  * estimate: {child.estimate} {child.node}";
 
 			var text = string.Join("\n", estimatedOptions.Select(Format));
 			Log($"Options:\n{text}");
 		}
 
-		private List<(Node<TBoard> child, double estimate)> GetEstimatedChildren(TBoard startBoard, Node<TBoard> root)
+		private List<(Node<TGame> child, double estimate)> GetEstimatedChildren(TGame game, Node<TGame> root)
 		{
 			return root
 				.GetChildren()
-				.Select(n => (child: n, estimate: EstimateNodeForFinalChoice(n, startBoard)))
+				.Select(n => (child: n, estimate: EstimateNodeForFinalChoice(n, game)))
 				.OrderByDescending(n => n.estimate)
 				.ToList();
 		}
 
-		private void BackpropagateScores(Node<TBoard> node, double[] scores)
+		private void BackpropagateScores(Node<TGame> node, double[] scores)
 		{
 			while (node != null)
 			{
@@ -89,42 +91,43 @@ namespace MctsLib
 			}
 		}
 
-		private Node<TBoard> GetExpandedNode(Node<TBoard> node, TBoard board)
+		private Node<TGame> GetExpandedNode(Node<TGame> node, TGame game)
 		{
-			while (node.GetUnvisitedChildren(board).Count == 0)
+			while (node.GetUnvisitedChildren(game).Count == 0)
 			{
 				var children = node.GetChildren();
 				if (children.Count == 0) return node;
 				node = children
 					.SelectOne(
-						childNode => EstimateNodeForSelection(childNode, board),
+						childNode => EstimateNodeForSelection(childNode, game),
 						Random
 					);
-				node.Move.ApplyTo(board);
+				node.Move.ApplyTo(game);
 			}
-			return Expand(node, board);
+			return Expand(node, game);
 		}
 
-		private Node<TBoard> Expand(Node<TBoard> node, TBoard board)
+		private Node<TGame> Expand(Node<TGame> node, TGame game)
 		{
-			var child = node.GetUnvisitedChildren(board)
-				.SelectOne(n => EstimateNodeForExpansion(n, board), Random);
+			var child = node.GetUnvisitedChildren(game)
+				.SelectOne(n => EstimateNodeForExpansion(n, game), Random);
 			node.MakeVisited(child);
-			child.Move.ApplyTo(board);
+			child.Move.ApplyTo(game);
 			return child;
 		}
 
-		private double[] SimulateToEnd(TBoard board)
+		private double[] SimulateToEnd(TGame game)
 		{
-			while (!board.IsFinished())
+			while (true)
 			{
-				var possibleMoves = board.GetPossibleMoves();
+				var possibleMoves = game.GetPossibleMoves().ToList();
+				if (!possibleMoves.Any()) break;
 				var move = possibleMoves.SelectOne(
-					m => EstimateNodeForSimulation(m, board),
+					m => EstimateNodeForSimulation(m, game),
 					Random);
-				move.ApplyTo(board);
+				move.ApplyTo(game);
 			}
-			return board.GetScores();
+			return game.GetScores();
 		}
 	}
 }

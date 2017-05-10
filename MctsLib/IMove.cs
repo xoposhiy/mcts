@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 
 namespace MctsLib
 {
-	public interface IMove<in TBoard>
+	public interface IMove<in TGame>
 	{
-		void ApplyTo(TBoard board);
+		void ApplyTo(TGame game);
 	}
 }

@@ -5,22 +5,22 @@ using System.Text;
 
 namespace MctsLib.Tests.TicTacToe
 {
-	public class TicTacToeBoard : IBoard<TicTacToeBoard>
+	public class TicTacToeGame : IGame<TicTacToeGame>
 	{
 		private readonly int[,] cells;
 
-		public TicTacToeBoard(int[,] cells, int currentPlayer)
+		public TicTacToeGame(int[,] cells, int currentPlayer)
 		{
 			this.cells = cells;
 			CurrentPlayer = currentPlayer;
 		}
 
-		public TicTacToeBoard()
+		public TicTacToeGame()
 			: this(new int[3, 3], 0)
 		{
 		}
 
-		public TicTacToeBoard MakeCopy()
+		public TicTacToeGame MakeCopy()
 		{
 			var destination = new int[3, 3];
 			for (int x = 0; x < 3; x++)
@@ -28,20 +28,20 @@ namespace MctsLib.Tests.TicTacToe
 			{
 				destination[x, y] = cells[x, y];
 			}
-			return new TicTacToeBoard(destination, CurrentPlayer);
+			return new TicTacToeGame(destination, CurrentPlayer);
 		}
 
 		public int CurrentPlayer { get; private set; }
 		public int PlayersCount => 2;
 
-		public IEnumerable<IMove<TicTacToeBoard>> GetPossibleMoves()
+		public IEnumerable<IMove<TicTacToeGame>> GetPossibleMoves()
 		{
-			if (GetWinner() >= 0) return new List<IMove<TicTacToeBoard>>();
+			if (GetWinner() >= 0) return new List<IMove<TicTacToeGame>>();
 			var moves =
 				from x in new[] { 0, 1, 2 }
 				from y in new[] { 0, 1, 2 }
 				where cells[x, y] == 0
-				select new TicTacToeMove(x, y) as IMove<TicTacToeBoard>;
+				select new TicTacToeMove(x, y) as IMove<TicTacToeGame>;
 			return moves;
 		}
 

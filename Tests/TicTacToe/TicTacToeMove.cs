@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace MctsLib.Tests.TicTacToe
 {
-	public class TicTacToeMove : IMove<TicTacToeBoard>
+	public class TicTacToeMove : IMove<TicTacToeGame>
 	{
 		public readonly int X, Y;
 
@@ -13,9 +13,9 @@ namespace MctsLib.Tests.TicTacToe
 			Y = y;
 		}
 
-		public void ApplyTo(TicTacToeBoard board)
+		public void ApplyTo(TicTacToeGame game)
 		{
-			board.MakeMove(X, Y);
+			game.MakeMove(X, Y);
 		}
 
 		public override string ToString()
