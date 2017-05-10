@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 // ReSharper disable AccessToModifiedClosure
@@ -13,21 +14,27 @@ namespace MctsLib
 
 	public class Mcts<TGame> where TGame : IGame<TGame>
 	{
-		public Mcts()
+		private readonly Random random;
+
+		public Mcts(Random random = null)
 		{
+			this.random = random ?? new Random();
 			EstimateNodeForSelection =
 				(n, b) => n.GetExpectedScore(b.CurrentPlayer) + Ubc.Margin(n, ExplorationConstant);
+			EstimateNodeForFinalChoice = 
+				(n, b) => n.GetExpectedScore(b.CurrentPlayer);
+			EstimateNodeForExpansion = (n, b) => 0.0;
+			EstimateNodeForSimulation = (n, b) => 0.0;
 		}
 
-		public EstimateNode<TGame> EstimateNodeForExpansion = (n, b) => 0.0;
-		public EstimateNode<TGame> EstimateNodeForFinalChoice = (n, b) => n.GetExpectedScore(b.CurrentPlayer);
-		public EstimateNode<TGame> EstimateNodeForSelection;
-		public double ExplorationConstant = 1.4;
-		public EstimateMove<TGame> EstimateNodeForSimulation = (move, b) => 0.0;
-		public Action<string> Log = s => { };
 		public int MaxSimulationsCount = 1000;
 		public TimeSpan MaxTime = TimeSpan.FromMilliseconds(100);
-		public Random Random = new Random();
+		public Action<string> Log = s => { };
+		public EstimateNode<TGame> EstimateNodeForExpansion;
+		public EstimateNode<TGame> EstimateNodeForFinalChoice;
+		public EstimateNode<TGame> EstimateNodeForSelection;
+		public EstimateMove<TGame> EstimateNodeForSimulation;
+		public double ExplorationConstant = 1.4;
 
 		public IMove<TGame> GetBestMove(TGame game)
 		{
@@ -39,7 +46,7 @@ namespace MctsLib
 		{
 			var estimatedChildren = GetEstimatedChildren(game, root);
 			LogMoveOptions(estimatedChildren);
-			var best = estimatedChildren.SelectOne(n => n.estimate, Random);
+			var best = estimatedChildren.SelectBest(n => n.estimate, random);
 			return best.child.Move;
 		}
 
@@ -58,9 +65,16 @@ namespace MctsLib
 				var scores = SimulateToEnd(gameCopy);
 				BackpropagateScores(newNode, scores);
 				simulationCount++;
+				if (root.GetUnvisitedChildren(game).Count + root.GetChildren().Count <= 1) break;
 			}
 
-			Log($"simulations count: {simulationCount}, depth: {maxDepth}, nodes: {root.GetNodesCount()}");
+			var timeSpent = (DateTime.Now - startTime).TotalSeconds;
+			Log(string.Join(", ",
+				$"simulations count: {simulationCount}",
+				$"depth: {maxDepth}",
+				$"nodes: {root.GetNodesCount()}", 
+				$"time: {timeSpent.ToString("0.##", CultureInfo.InvariantCulture)} s", 
+				$"{simulationCount / timeSpent:#} sim/s"));
 			return root;
 		}
 
@@ -98,9 +112,9 @@ namespace MctsLib
 				var children = node.GetChildren();
 				if (children.Count == 0) return node;
 				node = children
-					.SelectOne(
+					.SelectBest(
 						childNode => EstimateNodeForSelection(childNode, game),
-						Random
+						random
 					);
 				node.Move.ApplyTo(game);
 			}
@@ -110,7 +124,7 @@ namespace MctsLib
 		private Node<TGame> Expand(Node<TGame> node, TGame game)
 		{
 			var child = node.GetUnvisitedChildren(game)
-				.SelectOne(n => EstimateNodeForExpansion(n, game), Random);
+				.SelectBest(n => EstimateNodeForExpansion(n, game), random);
 			node.MakeVisited(child);
 			child.Move.ApplyTo(game);
 			return child;
@@ -122,9 +136,9 @@ namespace MctsLib
 			{
 				var possibleMoves = game.GetPossibleMoves().ToList();
 				if (!possibleMoves.Any()) break;
-				var move = possibleMoves.SelectOne(
+				var move = possibleMoves.SelectWithWeights(
 					m => EstimateNodeForSimulation(m, game),
-					Random);
+					random);
 				move.ApplyTo(game);
 			}
 			return game.GetScores();

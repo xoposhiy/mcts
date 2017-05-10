@@ -17,7 +17,7 @@ namespace MctsLib.Tests.TicTacToe
 		[Test]
 		public void BeSolvable()
 		{
-			var xIterationsCount = 2000;
+			var xIterationsCount = 200;
 			var oIterationsCount = 2000;
 			double[] scores = new double[2];
 			var rnd = new Random();
@@ -34,19 +34,20 @@ namespace MctsLib.Tests.TicTacToe
 		private static double[] RunGame(int xIterationsCount, int oIterationsCount, Random rnd, bool log = false)
 		{
 			var game = new TicTacToeGame();
+			var mcts = new Mcts<TicTacToeGame>(rnd)
+			{
+				//MaxSimulationsCount = int.MaxValue,
+				MaxTime = TimeSpan.FromSeconds(1),
+				//ExplorationConstant = 1
+			};
 			while (!game.IsFinished())
 			{
-				var mcts = new Mcts<TicTacToeGame>
-				{
-					Random = rnd,
-					MaxSimulationsCount = game.CurrentPlayer == 0 ? xIterationsCount : oIterationsCount,
-					MaxTime = TimeSpan.MaxValue,
-					//ExplorationConstant = 1
-				};
 				if (log) mcts.Log = Console.WriteLine;
+				mcts.MaxSimulationsCount = game.CurrentPlayer == 0 ? xIterationsCount : oIterationsCount;
 				var move = mcts.GetBestMove(game);
 				move.ApplyTo(game);
 				if (log) Console.WriteLine(game);
+				mcts.MaxTime = TimeSpan.FromMilliseconds(200);
 			}
 			return game.GetScores();
 		}

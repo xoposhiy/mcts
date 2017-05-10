@@ -19,30 +19,44 @@ namespace MctsLib
 			return items.ToList();
 		}
 
-		public static T SelectOne<T>(this IEnumerable<T> items, Func<T, IComparable> getKey, Random random)
+		public static T SelectBest<T>(this IEnumerable<T> items, Func<T, double> getKey, Random random)
 		{
-			if (getKey == null) return items.ChooseRandom(random);
 			return items.MaxBy(getKey).ChooseRandom(random);
 		}
 
-		public static List<T> MaxBy<T>(this IEnumerable<T> items, Func<T, IComparable> getKey)
+		public static T SelectWithWeights<T>(this IEnumerable<T> items, Func<T, double> getKey, Random random)
 		{
-			List<T> result = null;
-			IComparable bestKey = null;
+			var estimated = items.Select(item => (item:item, estimate:getKey(item))).OrderByDescending(t => t.estimate).ToList();
+			var totalSum = estimated.Sum(t => t.estimate);
+			var dice = random.NextDouble() * totalSum;
+			var sum = 0.0;
+			foreach (var item in estimated)
+			{
+				sum += item.estimate;
+				if (sum > dice) return item.item;
+			}
+			return estimated.Last().item;
+		}
+
+		public static IList<T> MaxBy<T>(this IEnumerable<T> items, Func<T, double> getKey)
+		{
+			IList<T> result = null;
+			double bestKey = double.MinValue;
 			foreach (var item in items)
 			{
 				var itemKey = getKey(item);
-				if (result == null || bestKey.CompareTo(itemKey) < 0)
+				if (result == null || bestKey < itemKey)
 				{
 					result = new List<T> { item };
 					bestKey = itemKey;
 				}
-				else if (bestKey.CompareTo(itemKey) == 0)
+				// ReSharper disable once CompareOfFloatsByEqualityOperator
+				else if (bestKey == itemKey)
 				{
 					result.Add(item);
 				}
 			}
-			return result ?? new List<T>();
+			return result ?? new T[0];
 		}
 	}
 }
