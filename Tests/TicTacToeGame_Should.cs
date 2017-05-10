@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using MctsLib.TicTacToe;
 using NUnit.Framework;
 
 namespace MctsLib.Tests.TicTacToe

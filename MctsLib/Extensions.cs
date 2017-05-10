@@ -8,9 +8,16 @@ namespace MctsLib
 	{
 		public static T ChooseRandom<T>(this IEnumerable<T> items, Random random)
 		{
-			var list = items.AsList();
-			if (list.Count == 0) return default(T);
-			return list[random.Next(list.Count)];
+			if (!(items is ICollection<T> col))
+				col = items.ToList();
+			if (col.Count == 0) return default(T);
+			var index = random.Next(col.Count);
+			switch (col)
+			{
+				case IList<T> list: return list[index];
+				case IReadOnlyList<T> list: return list[index];
+				default: return col.ElementAt(index);
+			}
 		}
 
 		public static IList<T> AsList<T>(this IEnumerable<T> items)
@@ -24,18 +31,18 @@ namespace MctsLib
 			return items.MaxBy(getKey).ChooseRandom(random);
 		}
 
-		public static T SelectWithWeights<T>(this IEnumerable<T> items, Func<T, double> getKey, Random random)
+		public static T SelectWithWeights<T>(this IReadOnlyCollection<T> items, Func<T, double> getKey, Random random)
 		{
-			var estimated = items.Select(item => (item:item, estimate:getKey(item))).OrderByDescending(t => t.estimate).ToList();
-			var totalSum = estimated.Sum(t => t.estimate);
+			var totalSum = items.Sum(getKey);
 			var dice = random.NextDouble() * totalSum;
 			var sum = 0.0;
-			foreach (var item in estimated)
+			T lastItem = default(T);
+			foreach (var item in items)
 			{
-				sum += item.estimate;
-				if (sum > dice) return item.item;
+				sum += getKey(lastItem = item);
+				if (sum >= dice) return item;
 			}
-			return estimated.Last().item;
+			return lastItem;
 		}
 
 		public static IList<T> MaxBy<T>(this IEnumerable<T> items, Func<T, double> getKey)

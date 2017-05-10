@@ -11,7 +11,7 @@ namespace MctsLib
 		TActualGame MakeCopy();
 
 		/// <returns>should be empty if game is finished</returns>
-		IEnumerable<IMove<TActualGame>> GetPossibleMoves();
+		ICollection<IMove<TActualGame>> GetPossibleMoves();
 
 		/// <returns>scores for every player in game after game is finished</returns>
 		double[] GetScores();

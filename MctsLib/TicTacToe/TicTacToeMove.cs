@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-namespace MctsLib.Tests.TicTacToe
+namespace MctsLib.TicTacToe
 {
 	public class TicTacToeMove : IMove<TicTacToeGame>
 	{

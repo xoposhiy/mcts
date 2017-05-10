@@ -42,7 +42,7 @@ namespace MctsLib
 			return GetBestMove(game, root);
 		}
 
-		private IMove<TGame> GetBestMove(TGame game, Node<TGame> root)
+		public IMove<TGame> GetBestMove(TGame game, Node<TGame> root)
 		{
 			var estimatedChildren = GetEstimatedChildren(game, root);
 			LogMoveOptions(estimatedChildren);
@@ -50,7 +50,7 @@ namespace MctsLib
 			return best.child.Move;
 		}
 
-		private Node<TGame> BuildGameTree(TGame game)
+		public Node<TGame> BuildGameTree(TGame game)
 		{
 			var root = new Node<TGame>(game.PlayersCount);
 			var startTime = DateTime.Now;
@@ -134,11 +134,12 @@ namespace MctsLib
 		{
 			while (true)
 			{
-				var possibleMoves = game.GetPossibleMoves().ToList();
+				var possibleMoves = game.GetPossibleMoves();
 				if (!possibleMoves.Any()) break;
-				var move = possibleMoves.SelectWithWeights(
-					m => EstimateNodeForSimulation(m, game),
-					random);
+				var move = possibleMoves.ChooseRandom(random);
+				//var move = possibleMoves.SelectWithWeights(
+				//	m => EstimateNodeForSimulation(m, game),
+				//	random);
 				move.ApplyTo(game);
 			}
 			return game.GetScores();

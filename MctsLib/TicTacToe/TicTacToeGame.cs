@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace MctsLib.Tests.TicTacToe
+namespace MctsLib.TicTacToe
 {
 	public class TicTacToeGame : IGame<TicTacToeGame>
 	{
@@ -22,19 +21,13 @@ namespace MctsLib.Tests.TicTacToe
 
 		public TicTacToeGame MakeCopy()
 		{
-			var destination = new int[3, 3];
-			for (int x = 0; x < 3; x++)
-			for (int y = 0; y < 3; y++)
-			{
-				destination[x, y] = cells[x, y];
-			}
-			return new TicTacToeGame(destination, CurrentPlayer);
+			return new TicTacToeGame((int[,]) cells.Clone(), CurrentPlayer);
 		}
 
 		public int CurrentPlayer { get; private set; }
 		public int PlayersCount => 2;
 
-		public IEnumerable<IMove<TicTacToeGame>> GetPossibleMoves()
+		public ICollection<IMove<TicTacToeGame>> GetPossibleMoves()
 		{
 			if (GetWinner() >= 0) return new List<IMove<TicTacToeGame>>();
 			var moves =
@@ -42,7 +35,7 @@ namespace MctsLib.Tests.TicTacToe
 				from y in new[] { 0, 1, 2 }
 				where cells[x, y] == 0
 				select new TicTacToeMove(x, y) as IMove<TicTacToeGame>;
-			return moves;
+			return moves.ToList();
 		}
 
 		public void MakeMove(int x, int y)
