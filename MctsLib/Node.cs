@@ -5,6 +5,12 @@ using System.Linq;
 
 namespace MctsLib
 {
+	public interface INode
+	{
+		INode Parent { get; }
+		int TotalPlays { get; }
+	}
+
 	public class Node<TGame> : INode where TGame : IGame<TGame>
 	{
 		public readonly int Depth;

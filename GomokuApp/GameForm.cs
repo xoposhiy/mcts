@@ -10,19 +10,28 @@ namespace GomokuApp
 {
 	public partial class GameForm : Form
 	{
-		private readonly Mcts<GomokuGame> ai = new Mcts<GomokuGame>
-		{
-			MaxTime = TimeSpan.FromSeconds(3),
-			MaxSimulationsCount = int.MaxValue,
-			ExplorationConstant = 0.5
-		};
+		private readonly Mcts<GomokuGame> ai;
 
-		private GomokuGame game = new GomokuGame();
+		private IMove<GomokuGame> StrategyForSimulation(GomokuGame simulationGame, ICollection<IMove<GomokuGame>> possibleMoves)
+		{
+			return simulationGame.ReasonableMoves.ChooseRandom(ai.Random);
+		}
+
+		private const int boardSize = 11;
+		private GomokuGame game = new GomokuGame(boardSize);
 		private (int x, int y) hoveredCell = (0, 0);
 		private Dictionary<(int x, int y), Node<GomokuGame>> stats;
 
 		public GameForm()
 		{
+			ai = new Mcts<GomokuGame>(TimeSpan.FromSeconds(4))
+			{
+				//ExplorationConstant = 0.5
+				StrategyForSimulation = StrategyForSimulation,
+				EstimateNodeForExpansion = (node, previousGame) => previousGame.ReasonableMoves.Contains(node.Move) ? 1 : 0,
+				EstimateNodeForSelection = (node, previousGame) => (previousGame.ReasonableMoves.Contains(node.Move) ? 0.2 : 0) + Ubc.Uct(node, previousGame, 0.5),
+				EstimateNodeForFinalChoice = (node, previousGame) => node.TotalPlays
+			};
 			DoubleBuffered = true;
 			InitializeComponent();
 		}
@@ -106,6 +115,7 @@ namespace GomokuApp
 			if (!game.IsFinished)
 			{
 				var root = ai.BuildGameTree(game);
+				Text = "simulations: " + root.TotalPlays + " expected score: " + root.GetExpectedScore(1);
 				stats = root.GetChildren()
 					.ToDictionary(
 						c => ((GomokuMove) c.Move).ToCoord(),
@@ -117,7 +127,7 @@ namespace GomokuApp
 			if (game.IsFinished)
 			{
 				MessageBox.Show(string.Join(":", game.GetScores().Select(s => s.ToString("0.#"))), "Finished!");
-				game = new GomokuGame();
+				game = new GomokuGame(boardSize);
 				stats = null;
 				Invalidate();
 			}

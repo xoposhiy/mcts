@@ -9,8 +9,22 @@ namespace MctsLib.Gomoku
 	{
 		private static readonly ICollection<IMove<GomokuGame>> EmptyCollection = new IMove<GomokuGame>[0];
 		private readonly int[,] cells;
-		private readonly HashSet<IMove<GomokuGame>> notUsedMoves;
+		private readonly HashSet<IMove<GomokuGame>> reasonableMoves;
+		public ICollection<IMove<GomokuGame>> ReasonableMoves => reasonableMoves;
 		private int winner = -1;
+
+		public GomokuGame(int size = 9)
+			: this(new int[size, size], 0)
+		{
+		}
+
+		public GomokuGame(int[,] cells, int currentPlayer, HashSet<IMove<GomokuGame>> reasonableMoves)
+		{
+			CurrentPlayer = currentPlayer;
+			this.cells = cells;
+			this.reasonableMoves = reasonableMoves;
+			Size = cells.GetLength(0);
+		}
 
 		public GomokuGame(int[,] cells, int currentPlayer)
 		{
@@ -19,12 +33,7 @@ namespace MctsLib.Gomoku
 			this.cells = cells;
 			CurrentPlayer = currentPlayer;
 			Size = cells.GetLength(0);
-			var moves =
-				from x in Enumerable.Range(0, Size)
-				from y in Enumerable.Range(0, Size)
-				where cells[x, y] == 0
-				select (IMove<GomokuGame>) new GomokuMove(x, y);
-			notUsedMoves = new HashSet<IMove<GomokuGame>>(moves);
+			reasonableMoves = new HashSet<IMove<GomokuGame>> { new GomokuMove(Size / 2, Size / 2) };
 		}
 
 		public GomokuGame()
@@ -44,13 +53,13 @@ namespace MctsLib.Gomoku
 
 		public GomokuGame MakeCopy()
 		{
-			return new GomokuGame((int[,]) cells.Clone(), CurrentPlayer);
+			return new GomokuGame((int[,])cells.Clone(), CurrentPlayer, new HashSet<IMove<GomokuGame>>(reasonableMoves));
 		}
 
 		public ICollection<IMove<GomokuGame>> GetPossibleMoves()
 		{
 			// performace critical method
-			return winner >= 0 ? EmptyCollection : notUsedMoves;
+			return winner >= 0 ? EmptyCollection : reasonableMoves;
 		}
 
 		public double[] GetScores()
@@ -62,9 +71,19 @@ namespace MctsLib.Gomoku
 
 		public void MakeMove(GomokuMove move)
 		{
-			notUsedMoves.Remove(move);
+			reasonableMoves.Remove(move);
 			cells[move.X, move.Y] = 1 + CurrentPlayer;
 			if (HasWinSequence(move.X, move.Y)) winner = CurrentPlayer;
+			else
+			{
+				var minX = Math.Max(0, move.X - 2);
+				var maxX = Math.Min(Size - 1, move.X + 2);
+				var minY = Math.Max(0, move.Y - 2);
+				var maxY = Math.Min(Size - 1, move.Y + 2);
+				for (int x = minX; x <= maxX; x++)
+				for (int y = minY; y <= maxY; y++)
+					if (cells[x, y] == 0) reasonableMoves.Add(new GomokuMove(x, y));
+			}
 			CurrentPlayer = 1 - CurrentPlayer;
 		}
 

@@ -9,7 +9,7 @@ namespace MctsLib.Gomoku
 			X = x;
 			Y = y;
 		}
-		
+
 		public void ApplyTo(GomokuGame game)
 		{
 			game.MakeMove(this);

@@ -2,6 +2,11 @@
 
 namespace MctsLib
 {
+	public interface IMove<in TGame>
+	{
+		void ApplyTo(TGame game);
+	}
+
 	public interface IGame<TActualGame> where TActualGame : IGame<TActualGame>
 	{
 		int CurrentPlayer { get; }

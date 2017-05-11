@@ -83,8 +83,9 @@ namespace MctsLib.Tests.Gomoku
 		[Test]
 		public void Performance()
 		{
-			var game = new GomokuGame();
+			var game = new GomokuGame(9);
 			var mcts = new Mcts<GomokuGame>(10, new Random(1234321));
+			game.MakeMove(5, 5);
 			mcts.GetBestMove(game);
 			mcts.MaxSimulationsCount = 50000;
 			var sw = Stopwatch.StartNew();

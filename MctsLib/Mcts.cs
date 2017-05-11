@@ -10,16 +10,13 @@ namespace MctsLib
 	public delegate double EstimateNode<TGame>(Node<TGame> node, TGame previousGame)
 		where TGame : IGame<TGame>;
 
-	public delegate double EstimateMove<TGame>(IMove<TGame> move, TGame previousGame)
-		where TGame : IGame<TGame>;
-
 	public class Mcts<TGame> where TGame : IGame<TGame>
 	{
 		private readonly Random random;
 		public EstimateNode<TGame> EstimateNodeForExpansion;
 		public EstimateNode<TGame> EstimateNodeForFinalChoice;
 		public EstimateNode<TGame> EstimateNodeForSelection;
-		public EstimateMove<TGame> EstimateNodeForSimulation;
+		public Func<TGame, ICollection<IMove<TGame>>, IMove<TGame>> StrategyForSimulation;
 		public double ExplorationConstant = 1.4;
 		public Action<string> Log = s => { };
 
@@ -44,12 +41,14 @@ namespace MctsLib
 		{
 			this.random = random ?? new Random();
 			EstimateNodeForSelection =
-				(n, b) => n.GetExpectedScore(b.CurrentPlayer) + Ubc.Margin(n, ExplorationConstant);
+				(n, b) => Ubc.Uct(n, b, ExplorationConstant);
 			EstimateNodeForFinalChoice =
 				(n, b) => n.GetExpectedScore(b.CurrentPlayer);
 			EstimateNodeForExpansion = (n, b) => 0.0;
-			EstimateNodeForSimulation = (n, b) => 0.0;
+			StrategyForSimulation = (g, ms) => ms.ChooseRandom(this.random);
 		}
+
+		public Random Random => random;
 
 		public IMove<TGame> GetBestMove(TGame game)
 		{
@@ -153,10 +152,7 @@ namespace MctsLib
 			{
 				var possibleMoves = game.GetPossibleMoves();
 				if (!possibleMoves.Any()) break;
-				var move = possibleMoves.ChooseRandom(random);
-				//var move = possibleMoves.SelectWithWeights(
-				//	m => EstimateNodeForSimulation(m, game),
-				//	random);
+				var move = StrategyForSimulation(game, possibleMoves);
 				move.ApplyTo(game);
 			}
 			return game.GetScores();
