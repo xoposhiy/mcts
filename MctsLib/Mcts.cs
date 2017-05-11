@@ -7,34 +7,49 @@ using System.Linq;
 
 namespace MctsLib
 {
-	public delegate double EstimateNode<TGame>(Node<TGame> node, TGame previousGame) 
+	public delegate double EstimateNode<TGame>(Node<TGame> node, TGame previousGame)
 		where TGame : IGame<TGame>;
-	public delegate double EstimateMove<TGame>(IMove<TGame> move, TGame previousGame) 
+
+	public delegate double EstimateMove<TGame>(IMove<TGame> move, TGame previousGame)
 		where TGame : IGame<TGame>;
 
 	public class Mcts<TGame> where TGame : IGame<TGame>
 	{
 		private readonly Random random;
+		public EstimateNode<TGame> EstimateNodeForExpansion;
+		public EstimateNode<TGame> EstimateNodeForFinalChoice;
+		public EstimateNode<TGame> EstimateNodeForSelection;
+		public EstimateMove<TGame> EstimateNodeForSimulation;
+		public double ExplorationConstant = 1.4;
+		public Action<string> Log = s => { };
+
+		public int MaxSimulationsCount = 1000;
+		public TimeSpan MaxTime = TimeSpan.FromMilliseconds(100);
+
+		public Mcts(TimeSpan maxTime, Random random = null)
+			: this(random)
+		{
+			MaxTime = maxTime;
+			MaxSimulationsCount = int.MaxValue;
+		}
+
+		public Mcts(int maxSimulationsCount, Random random = null)
+			: this(random)
+		{
+			MaxTime = TimeSpan.MaxValue;
+			MaxSimulationsCount = maxSimulationsCount;
+		}
 
 		public Mcts(Random random = null)
 		{
 			this.random = random ?? new Random();
 			EstimateNodeForSelection =
 				(n, b) => n.GetExpectedScore(b.CurrentPlayer) + Ubc.Margin(n, ExplorationConstant);
-			EstimateNodeForFinalChoice = 
+			EstimateNodeForFinalChoice =
 				(n, b) => n.GetExpectedScore(b.CurrentPlayer);
 			EstimateNodeForExpansion = (n, b) => 0.0;
 			EstimateNodeForSimulation = (n, b) => 0.0;
 		}
-
-		public int MaxSimulationsCount = 1000;
-		public TimeSpan MaxTime = TimeSpan.FromMilliseconds(100);
-		public Action<string> Log = s => { };
-		public EstimateNode<TGame> EstimateNodeForExpansion;
-		public EstimateNode<TGame> EstimateNodeForFinalChoice;
-		public EstimateNode<TGame> EstimateNodeForSelection;
-		public EstimateMove<TGame> EstimateNodeForSimulation;
-		public double ExplorationConstant = 1.4;
 
 		public IMove<TGame> GetBestMove(TGame game)
 		{
@@ -72,16 +87,18 @@ namespace MctsLib
 			Log(string.Join(", ",
 				$"simulations count: {simulationCount}",
 				$"depth: {maxDepth}",
-				$"nodes: {root.GetNodesCount()}", 
-				$"time: {timeSpent.ToString("0.##", CultureInfo.InvariantCulture)} s", 
+				$"nodes: {root.GetNodesCount()}",
+				$"time: {timeSpent.ToString("0.##", CultureInfo.InvariantCulture)} s",
 				$"{simulationCount / timeSpent:#} sim/s"));
 			return root;
 		}
 
 		private void LogMoveOptions(IEnumerable<(Node<TGame> node, double estimate)> estimatedOptions)
 		{
-			string Format((Node<TGame> node, double estimate) child) =>
-				$"  * estimate: {child.estimate} {child.node}";
+			string Format((Node<TGame> node, double estimate) child)
+			{
+				return $"  * estimate: {child.estimate} {child.node}";
+			}
 
 			var text = string.Join("\n", estimatedOptions.Select(Format));
 			Log($"Options:\n{text}");

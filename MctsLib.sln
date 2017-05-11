@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MctsLib", "MctsLib\MctsLib.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{6625B605-CABE-49B0-BF95-D414BAF76B52}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GomokuGame", "GomokuGame\GomokuGame.csproj", "{29FAC4D3-12CE-4F7B-8206-18BA7AF66912}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GomokuApp", "GomokuApp\GomokuApp.csproj", "{29FAC4D3-12CE-4F7B-8206-18BA7AF66912}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,4 +1,4 @@
-﻿namespace GomokuGame
+﻿namespace GomokuApp
 {
 	partial class GameForm
 	{

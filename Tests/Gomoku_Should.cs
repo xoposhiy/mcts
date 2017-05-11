@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using MctsLib.Gomoku;
 using NUnit.Framework;
 
@@ -34,6 +35,15 @@ namespace MctsLib.Tests.Gomoku
 			Assert.AreEqual(new[] { 0, 1.0 }, oGame.GetScores());
 		}
 
+		[Test]
+		public void PossibleMove()
+		{
+			var game = new GomokuGame();
+			game.MakeMove(0, 0);
+			CollectionAssert.Contains(game.GetPossibleMoves(), new GomokuMove(0, 1));
+			CollectionAssert.DoesNotContain(game.GetPossibleMoves(), new GomokuMove(0, 0));
+		}
+
 		[TestCase]
 		public void HaveEvenScore_WhenNoWinner()
 		{
@@ -41,6 +51,46 @@ namespace MctsLib.Tests.Gomoku
 			Assert.AreEqual(new[] { 0.5, 0.5 }, game.GetScores());
 			game.MakeMove(1, 2);
 			Assert.AreEqual(new[] { 0.5, 0.5 }, game.GetScores());
+		}
+
+		[Test]
+		public void CloseThree()
+		{
+			/*
+			......
+			......
+			....O.
+			.XXX?.
+			....O.
+			......
+			......
+			*/
+			var game = new GomokuGame();
+			game.MakeMove(1, 3);
+			game.MakeMove(4, 2);
+			game.MakeMove(2, 3);
+			game.MakeMove(4, 4);
+			game.MakeMove(3, 3);
+			var mcts = new Mcts<GomokuGame>(5000, new Random(123123))
+			{
+				Log = Console.WriteLine
+			};
+			var move = (GomokuMove)mcts.GetBestMove(game);
+			Assert.AreEqual(4, move.X);
+			Assert.AreEqual(3, move.Y);
+		}
+
+		[Test]
+		public void Performance()
+		{
+			var game = new GomokuGame();
+			var mcts = new Mcts<GomokuGame>(10, new Random(1234321));
+			mcts.GetBestMove(game);
+			mcts.MaxSimulationsCount = 50000;
+			var sw = Stopwatch.StartNew();
+			mcts.GetBestMove(game);
+			Console.WriteLine(sw.Elapsed);
+			Console.WriteLine($"{mcts.MaxSimulationsCount / sw.Elapsed.TotalSeconds:0} sim/s");
 		}
 
 		[Test]

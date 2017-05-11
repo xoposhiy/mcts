@@ -1,28 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using MctsLib;
 using MctsLib.Gomoku;
 
-namespace GomokuGame
+namespace GomokuApp
 {
 	public partial class GameForm : Form
 	{
-		private MctsLib.Gomoku.GomokuGame game = new MctsLib.Gomoku.GomokuGame();
-		private Mcts<MctsLib.Gomoku.GomokuGame> ai = new Mcts<MctsLib.Gomoku.GomokuGame>
+		private readonly Mcts<GomokuGame> ai = new Mcts<GomokuGame>
 		{
-			MaxTime = TimeSpan.FromSeconds(5),
+			MaxTime = TimeSpan.FromSeconds(3),
 			MaxSimulationsCount = int.MaxValue,
 			ExplorationConstant = 0.5
 		};
+
+		private GomokuGame game = new GomokuGame();
 		private (int x, int y) hoveredCell = (0, 0);
-		private Dictionary<(int x, int y), Node<MctsLib.Gomoku.GomokuGame>> stats;
+		private Dictionary<(int x, int y), Node<GomokuGame>> stats;
 
 		public GameForm()
 		{
@@ -36,15 +33,15 @@ namespace GomokuGame
 			var cw = w / game.Size;
 			var h = ClientRectangle.Height;
 			var ch = h / game.Size;
-			Pen xPen = new Pen(Color.Blue, 3);
-			Pen oPen = new Pen(Color.DarkRed, 3);
-			for (int x = 0; x < game.Size; x++)
-				for (int y = 0; y < game.Size; y++)
-					RenderCell(e, x, y, xPen, cw, ch, oPen);
+			var xPen = new Pen(Color.Blue, 3);
+			var oPen = new Pen(Color.DarkRed, 3);
+			for (var x = 0; x < game.Size; x++)
+			for (var y = 0; y < game.Size; y++)
+				RenderCell(e, x, y, xPen, cw, ch, oPen);
 
-			for (int x = 1; x < game.Size; x++)
+			for (var x = 1; x < game.Size; x++)
 				e.Graphics.DrawLine(Pens.Black, x * cw, 0, x * cw, h);
-			for (int y = 1; y < game.Size; y++)
+			for (var y = 1; y < game.Size; y++)
 				e.Graphics.DrawLine(Pens.Black, 0, y * ch, w, y * ch);
 			e.Graphics.DrawRectangle(new Pen(Color.Blue, 2), hoveredCell.x * cw, hoveredCell.y * ch, cw, ch);
 		}
@@ -56,7 +53,7 @@ namespace GomokuGame
 				var score = node.GetExpectedScore(1);
 				var color = GetColor(score);
 				e.Graphics.FillRectangle(new SolidBrush(color), x * cw, y * ch, cw, ch);
-				e.Graphics.DrawString(node.TotalPlays.ToString(), SystemFonts.DialogFont, Brushes.Black, x*cw, y*ch);
+				e.Graphics.DrawString(node.TotalPlays.ToString(), SystemFonts.DialogFont, Brushes.Black, x * cw, y * ch);
 			}
 			if (game[x, y] == 1)
 			{
@@ -73,15 +70,14 @@ namespace GomokuGame
 		{
 			if (score <= 0.5)
 			{
-				var other = (int)(510 * score);
+				var other = (int) (510 * score);
 				return Color.FromArgb(255, 255, other, other);
 			}
 			else
 			{
-				var other = 255 - (int)(510 * (score-0.5));
+				var other = 255 - (int) (510 * (score - 0.5));
 				return Color.FromArgb(255, other, 255, other);
 			}
-
 		}
 
 		private void GameForm_MouseMove(object sender, MouseEventArgs e)
@@ -103,6 +99,7 @@ namespace GomokuGame
 		private void GameForm_MouseUp(object sender, MouseEventArgs e)
 		{
 			var (x, y) = GetCell(e.Location);
+			if (!game.GetPossibleMoves().Contains(new GomokuMove(x, y))) return;
 			game.MakeMove(x, y);
 			Invalidate();
 			Application.DoEvents();
@@ -119,8 +116,8 @@ namespace GomokuGame
 			}
 			if (game.IsFinished)
 			{
-				MessageBox.Show("Finished!");
-				game = new MctsLib.Gomoku.GomokuGame();
+				MessageBox.Show(string.Join(":", game.GetScores().Select(s => s.ToString("0.#"))), "Finished!");
+				game = new GomokuGame();
 				stats = null;
 				Invalidate();
 			}
