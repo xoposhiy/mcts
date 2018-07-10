@@ -1,3 +1,3 @@
-namespace MctsLib
+namespace lib
 {
 }

@@ -1,6 +1,6 @@
 using System;
 
-namespace MctsLib
+namespace lib
 {
 	public static class Ubc
 	{

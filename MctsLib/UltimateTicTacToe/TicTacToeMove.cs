@@ -3,17 +3,17 @@ using System.Linq;
 
 namespace lib
 {
-	public class TicTacToeMove : IMove<TicTacToeGame>
+	public class UltimateTTTMove : IMove<UltimateTTTGame>
 	{
 		public readonly int X, Y;
 
-		public TicTacToeMove(int x, int y)
+		public UltimateTTTMove(int x, int y)
 		{
 			X = x;
 			Y = y;
 		}
 
-		public void ApplyTo(TicTacToeGame game)
+		public void ApplyTo(UltimateTTTGame game)
 		{
 			game.MakeMove(X, Y);
 		}

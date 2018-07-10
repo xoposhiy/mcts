@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Text;
 
-namespace MctsLib.TicTacToe
+namespace lib
 {
 	public class TicTacToeGame : IGame<TicTacToeGame>
 	{
@@ -24,9 +24,19 @@ namespace MctsLib.TicTacToe
 			return new TicTacToeGame((int[,]) cells.Clone(), CurrentPlayer);
 		}
 
-		public int CurrentPlayer { get; private set; }
+		public int CurrentPlayer { get; set; }
 		public int PlayersCount => 2;
 
+		public ICollection<TicTacToeMove> GetPossibleTTTMoves()
+		{
+			if (GetWinner() >= 0) return new List<TicTacToeMove>();
+			var moves =
+				from x in new[] { 0, 1, 2 }
+				from y in new[] { 0, 1, 2 }
+				where cells[x, y] == 0
+				select new TicTacToeMove(x, y);
+			return moves.ToList();
+		}
 		public ICollection<IMove<TicTacToeGame>> GetPossibleMoves()
 		{
 			if (GetWinner() >= 0) return new List<IMove<TicTacToeGame>>();
@@ -42,6 +52,7 @@ namespace MctsLib.TicTacToe
 		{
 			cells[x, y] = 1 + CurrentPlayer;
 			CurrentPlayer = 1 - CurrentPlayer;
+			winner = null;
 		}
 
 		public bool IsFinished()
@@ -57,8 +68,11 @@ namespace MctsLib.TicTacToe
 			else return new[] { 0.5, 0.5 };
 		}
 
+		private int? winner;
+
 		public int GetWinner()
 		{
+			if (winner.HasValue) return winner.Value;
 			var sym =
 				SameSymbolInLine(0, 0, 1, 0)
 				?? SameSymbolInLine(0, 1, 1, 0)
@@ -69,10 +83,24 @@ namespace MctsLib.TicTacToe
 				?? SameSymbolInLine(0, 0, 1, 1)
 				?? SameSymbolInLine(2, 0, -1, 1)
 				?? 0;
-			return sym - 1;
+			sym--;
+			winner = sym;
+			return sym;
 		}
 
-		private int? SameSymbolInLine(int x0, int y0, int dx, int dy)
+		public bool IsWinMove(int x, int y)
+		{
+			cells[x, y] = 1 + CurrentPlayer;
+			var sym1 = SameSymbolInLine(0, y, 1, 0) ?? SameSymbolInLine(x, 0, 0, 1) ??
+					   SameSymbolInLine(0, 0, 1, 1) ?? SameSymbolInLine(2, 0, -1, 1);
+			cells[x, y] = 2-CurrentPlayer;
+			var sym2 = SameSymbolInLine(0, y, 1, 0) ?? SameSymbolInLine(x, 0, 0, 1) ??
+					   SameSymbolInLine(0, 0, 1, 1) ?? SameSymbolInLine(2, 0, -1, 1);
+			cells[x, y] = 0;
+			return (sym1 ?? sym2) != null;
+		}
+
+		public int? SameSymbolInLine(int x0, int y0, int dx, int dy)
 		{
 			var sym = cells[x0, y0];
 			if (sym == 0) return null;
@@ -94,5 +122,7 @@ namespace MctsLib.TicTacToe
 			sb.AppendLine("CurrentPlayer: " + syms[CurrentPlayer + 1]);
 			return sb.ToString();
 		}
+
+		public int this[int x, int y] => cells[x, y];
 	}
 }

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace MctsLib
+namespace lib
 {
 	public interface IMove<in TGame>
 	{

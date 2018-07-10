@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 
 // ReSharper disable AccessToModifiedClosure
 
-namespace MctsLib
+namespace lib
 {
 	public delegate double EstimateNode<TGame>(Node<TGame> node, TGame previousGame)
 		where TGame : IGame<TGame>;
@@ -20,23 +21,6 @@ namespace MctsLib
 		public double ExplorationConstant = 1.4;
 		public Action<string> Log = s => { };
 
-		public int MaxSimulationsCount = 1000;
-		public TimeSpan MaxTime = TimeSpan.FromMilliseconds(100);
-
-		public Mcts(TimeSpan maxTime, Random random = null)
-			: this(random)
-		{
-			MaxTime = maxTime;
-			MaxSimulationsCount = int.MaxValue;
-		}
-
-		public Mcts(int maxSimulationsCount, Random random = null)
-			: this(random)
-		{
-			MaxTime = TimeSpan.MaxValue;
-			MaxSimulationsCount = maxSimulationsCount;
-		}
-
 		public Mcts(Random random = null)
 		{
 			this.random = random ?? new Random();
@@ -50,9 +34,9 @@ namespace MctsLib
 
 		public Random Random => random;
 
-		public IMove<TGame> GetBestMove(TGame game)
+		public IMove<TGame> GetBestMove(TGame game, Countdown countdown)
 		{
-			var root = BuildGameTree(game);
+			var root = BuildGameTree(game, countdown);
 			return GetBestMove(game, root);
 		}
 
@@ -60,18 +44,17 @@ namespace MctsLib
 		{
 			var estimatedChildren = GetEstimatedChildren(game, root);
 			LogMoveOptions(estimatedChildren);
-			var best = estimatedChildren.SelectBest(n => n.estimate, random);
-			return best.child.Move;
+			var best = estimatedChildren.GetRandomBest(n => n.Item2, random);
+			return best.Item1.Move;
 		}
 
-		public Node<TGame> BuildGameTree(TGame game)
+		public Node<TGame> BuildGameTree(TGame game, Countdown countdown)
 		{
 			var root = new Node<TGame>(game.PlayersCount);
 			var startTime = DateTime.Now;
 			var simulationCount = 0;
 			var maxDepth = 0;
-			while (DateTime.Now - startTime < MaxTime
-				   && simulationCount < MaxSimulationsCount)
+			while (!countdown.IsFinished)
 			{
 				var gameCopy = game.MakeCopy();
 				var newNode = GetExpandedNode(root, gameCopy);
@@ -92,23 +75,18 @@ namespace MctsLib
 			return root;
 		}
 
-		private void LogMoveOptions(IEnumerable<(Node<TGame> node, double estimate)> estimatedOptions)
+		private void LogMoveOptions(IEnumerable<Tuple<Node<TGame>, double>> estimatedOptions)
 		{
-			string Format((Node<TGame> node, double estimate) child)
-			{
-				return $"  * estimate: {child.estimate} {child.node}";
-			}
-
-			var text = string.Join("\n", estimatedOptions.Select(Format));
+			var text = string.Join("\n", estimatedOptions.Select(child => $"  * estimate: {child.Item2} {child.Item1}"));
 			Log($"Options:\n{text}");
 		}
 
-		private List<(Node<TGame> child, double estimate)> GetEstimatedChildren(TGame game, Node<TGame> root)
+		private List<Tuple<Node<TGame>, double>> GetEstimatedChildren(TGame game, Node<TGame> root)
 		{
 			return root
 				.GetChildren()
-				.Select(n => (child: n, estimate: EstimateNodeForFinalChoice(n, game)))
-				.OrderByDescending(n => n.estimate)
+				.Select(n => Tuple.Create(n, EstimateNodeForFinalChoice(n, game)))
+				.OrderByDescending(n => n.Item2)
 				.ToList();
 		}
 
@@ -128,7 +106,7 @@ namespace MctsLib
 				var children = node.GetChildren();
 				if (children.Count == 0) return node;
 				node = children
-					.SelectBest(
+					.GetRandomBest(
 						childNode => EstimateNodeForSelection(childNode, game),
 						random
 					);
@@ -140,7 +118,7 @@ namespace MctsLib
 		private Node<TGame> Expand(Node<TGame> node, TGame game)
 		{
 			var child = node.GetUnvisitedChildren(game)
-				.SelectBest(n => EstimateNodeForExpansion(n, game), random);
+				.GetRandomBest(n => EstimateNodeForExpansion(n, game), random);
 			node.MakeVisited(child);
 			child.Move.ApplyTo(game);
 			return child;

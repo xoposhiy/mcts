@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace MctsLib.Gomoku
+namespace lib.Gomoku
 {
 	public class GomokuGame : IGame<GomokuGame>
 	{

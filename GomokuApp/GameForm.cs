@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using MctsLib;
-using MctsLib.Gomoku;
+using lib;
+using lib.Gomoku;
 
 namespace GomokuApp
 {
@@ -24,7 +24,7 @@ namespace GomokuApp
 
 		public GameForm()
 		{
-			ai = new Mcts<GomokuGame>(TimeSpan.FromSeconds(4))
+			ai = new Mcts<GomokuGame>
 			{
 				//ExplorationConstant = 0.5
 				StrategyForSimulation = StrategyForSimulation,
@@ -114,7 +114,7 @@ namespace GomokuApp
 			Application.DoEvents();
 			if (!game.IsFinished)
 			{
-				var root = ai.BuildGameTree(game);
+				var root = ai.BuildGameTree(game, 1000);
 				Text = "simulations: " + root.TotalPlays + " expected score: " + root.GetExpectedScore(1);
 				stats = root.GetChildren()
 					.ToDictionary(

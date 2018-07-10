@@ -1,4 +1,4 @@
-namespace MctsLib.Gomoku
+namespace lib.Gomoku
 {
 	public class GomokuMove : IMove<GomokuGame>
 	{
